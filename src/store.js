@@ -1,9 +1,13 @@
 // Tiny IndexedDB wrapper. Stores raw streams + per-track enrichment.
 const DB_NAME = 'shx';
 const DB_VERSION = 1;
+const STREAM_CHUNK = 5000;
+
+let _dbPromise = null;
 
 function open() {
-  return new Promise((resolve, reject) => {
+  if (_dbPromise) return _dbPromise;
+  _dbPromise = new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = () => {
       const db = req.result;
@@ -15,7 +19,6 @@ function open() {
         db.createObjectStore('files', { keyPath: 'name' });
       }
       if (!db.objectStoreNames.contains('tracks')) {
-        // key = spotify track id
         db.createObjectStore('tracks', { keyPath: 'id' });
       }
       if (!db.objectStoreNames.contains('artists')) {
@@ -25,45 +28,81 @@ function open() {
         db.createObjectStore('meta', { keyPath: 'k' });
       }
     };
-    req.onerror = () => reject(req.error);
-    req.onsuccess = () => resolve(req.result);
+    req.onblocked = () => reject(new Error('IndexedDB blocked by another tab'));
+    req.onerror = () => { _dbPromise = null; reject(req.error); };
+    req.onsuccess = () => {
+      const db = req.result;
+      db.onversionchange = () => { db.close(); _dbPromise = null; };
+      resolve(db);
+    };
   });
+  return _dbPromise;
 }
 
+// Run a transaction. `fn(t)` should return a Promise that resolves with the
+// result; the result is returned from `tx` only after the transaction itself
+// commits (oncomplete). On error/abort, tx rejects with the underlying error.
 async function tx(stores, mode, fn) {
   const db = await open();
   return new Promise((resolve, reject) => {
-    const t = db.transaction(stores, mode);
+    let t;
+    try { t = db.transaction(stores, mode); }
+    catch (e) { return reject(e); }
     let result;
-    t.oncomplete = () => resolve(result);
-    t.onerror = () => reject(t.error);
-    t.onabort = () => reject(t.error);
-    Promise.resolve(fn(t)).then(r => { result = r; }).catch(reject);
+    let settled = false;
+    const settle = (kind, val) => {
+      if (settled) return;
+      settled = true;
+      if (kind === 'ok') resolve(val); else reject(val);
+    };
+    t.oncomplete = () => settle('ok', result);
+    t.onerror = () => settle('err', t.error || new Error('transaction error'));
+    t.onabort = () => settle('err', t.error || new Error('transaction aborted'));
+    Promise.resolve()
+      .then(() => fn(t))
+      .then(r => { result = r; })
+      .catch(err => {
+        try { t.abort(); } catch {}
+        settle('err', err);
+      });
+  });
+}
+
+// Batch-add an array of items. Returns the number actually inserted (i.e.,
+// excluding duplicates rejected by the unique keyPath constraint).
+function addBatch(store, items) {
+  return new Promise((resolve, reject) => {
+    let added = 0;
+    let pending = items.length;
+    if (!pending) return resolve(0);
+    for (const item of items) {
+      let req;
+      try { req = store.add(item); }
+      catch (e) { return reject(e); }
+      req.onsuccess = () => { added++; if (--pending === 0) resolve(added); };
+      req.onerror = (e) => {
+        // duplicate key -> fine, swallow so the transaction does not abort
+        if (req.error && req.error.name === 'ConstraintError') {
+          e.preventDefault();
+          e.stopPropagation();
+          if (--pending === 0) resolve(added);
+        } else {
+          reject(req.error || new Error('add failed'));
+        }
+      };
+    }
   });
 }
 
 export async function putStreams(streams) {
-  if (!streams.length) return 0;
+  if (!streams || !streams.length) return 0;
   let added = 0;
-  await tx(['streams'], 'readwrite', t => {
-    const s = t.objectStore('streams');
-    return new Promise((resolve, reject) => {
-      let i = 0;
-      function next() {
-        if (i >= streams.length) return resolve();
-        const item = streams[i++];
-        const r = s.add(item);
-        r.onsuccess = () => { added++; next(); };
-        r.onerror = (e) => {
-          // ConstraintError = duplicate key, that's fine
-          if (r.error && r.error.name === 'ConstraintError') {
-            e.preventDefault(); next();
-          } else reject(r.error);
-        };
-      }
-      next();
+  for (let i = 0; i < streams.length; i += STREAM_CHUNK) {
+    const slice = streams.slice(i, i + STREAM_CHUNK);
+    added += await tx(['streams'], 'readwrite', async t => {
+      return addBatch(t.objectStore('streams'), slice);
     });
-  });
+  }
   return added;
 }
 

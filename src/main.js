@@ -44,29 +44,62 @@ function fmtDate(s) {
 }
 
 // === FILE INTAKE ===
+const yieldToBrowser = () => new Promise(r => setTimeout(r, 0));
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 async function ingestFiles(fileList) {
   const files = [...fileList];
   if (!files.length) return;
   let total = 0, added = 0, kept = 0, dropped = 0;
-  dzStatus.innerHTML = `parsing ${files.length} file${files.length>1?'s':''}…`;
-  for (const f of files) {
+  const errors = [];
+  const setStatus = (txt, isErr=false) => {
+    dzStatus.innerHTML = isErr
+      ? `<span style="color:var(--danger)">${txt}</span>`
+      : txt;
+  };
+  setStatus(`parsing ${files.length} file${files.length>1?'s':''}…`);
+  await yieldToBrowser();
+
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    setStatus(`parsing ${i+1}/${files.length} · ${escapeHtml(f.name)}…`);
+    await yieldToBrowser();
     try {
       const meta = parseFilename(f.name);
       if (meta && meta.kind === 'video') { dropped++; continue; }
       const streams = await parseFile(f);
       total += streams.length;
+      setStatus(`storing ${i+1}/${files.length} · ${escapeHtml(f.name)} (${streams.length.toLocaleString()} entries)…`);
+      await yieldToBrowser();
       const a = await putStreams(streams);
       added += a;
       kept += streams.length - a;
       await rememberFile(f.name);
     } catch (e) {
-      console.error(e);
-      dzStatus.innerHTML = `<span style="color:var(--danger)">${e.message}</span>`;
+      console.error('ingest failed for', f.name, e);
+      errors.push(`${f.name}: ${e && e.message ? e.message : e}`);
     }
   }
-  const summary = `parsed ${total.toLocaleString()} entries · ${added.toLocaleString()} new · ${kept.toLocaleString()} duplicates skipped${dropped?` · ${dropped} non-audio files`:''}`;
-  dzStatus.textContent = summary;
-  await render();
+
+  const parts = [
+    `parsed ${total.toLocaleString()} entries`,
+    `${added.toLocaleString()} new`,
+    `${kept.toLocaleString()} duplicates skipped`,
+  ];
+  if (dropped) parts.push(`${dropped} non-audio files`);
+  let summary = parts.join(' · ');
+  if (errors.length) summary += ` · ${errors.length} error${errors.length>1?'s':''}: ${errors[0]}`;
+  setStatus(summary, errors.length > 0);
+
+  try {
+    await render();
+  } catch (e) {
+    console.error('render failed', e);
+    setStatus(`render error: ${e && e.message ? e.message : e}`, true);
+  }
 }
 
 dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag'); });
@@ -76,7 +109,10 @@ dropzone.addEventListener('drop', e => {
   dropzone.classList.remove('drag');
   ingestFiles(e.dataTransfer.files);
 });
-fileInput.addEventListener('change', e => ingestFiles(e.target.files));
+fileInput.addEventListener('change', async e => {
+  await ingestFiles(e.target.files);
+  e.target.value = '';
+});
 
 $('addMoreBtn').addEventListener('click', () => fileInput.click());
 $('resetBtn').addEventListener('click', async () => {
