@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Streaming History</title>
+<link rel="stylesheet" href="./styles.css" />
+</head>
+<body data-theme="dark">
+  <header class="topbar">
+    <div class="brand">
+      <span class="dot"></span>
+      <span class="title">streaming history</span>
+      <span class="sub" id="summaryLine"></span>
+    </div>
+    <div class="topbar-actions">
+      <button id="excludeBtn" class="ghost" title="Exclude tracks from analytics">exclude</button>
+      <button id="enrichBtn" class="ghost" title="Enrich with Spotify metadata (genres, audio features)">enrich</button>
+      <button id="addMoreBtn" class="ghost" title="Add more JSON files">+ files</button>
+      <button id="resetBtn" class="ghost danger" title="Clear all local data">reset</button>
+      <button id="themeBtn" class="theme-toggle" aria-label="Toggle theme" title="Theme">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path></svg>
+      </button>
+    </div>
+  </header>
+
+  <main id="app">
+    <section id="dropzone" class="dropzone">
+      <div class="dz-inner">
+        <div class="dz-title">drop your spotify extended streaming history</div>
+        <div class="dz-hint">files named <code>Streaming_History_Audio_*.json</code></div>
+        <div class="dz-actions">
+          <label class="btn primary">
+            <input id="fileInput" type="file" accept="application/json,.json" multiple hidden />
+            choose files
+          </label>
+        </div>
+        <div id="dzStatus" class="dz-status"></div>
+      </div>
+    </section>
+
+    <section id="dashboard" class="hidden">
+      <div id="kpis" class="kpis"></div>
+      <div id="sections" class="sections"></div>
+    </section>
+  </main>
+
+  <!-- Enrichment dialog -->
+  <dialog id="enrichDialog" class="dialog">
+    <form method="dialog" class="dialog-inner" id="enrichForm">
+      <div class="dialog-head">
+        <h3>enrich with spotify metadata</h3>
+        <button value="cancel" class="x" aria-label="close">×</button>
+      </div>
+      <div class="dialog-body">
+        <p class="muted small">
+          Adds <b>genres</b>, <b>popularity</b>, <b>release date</b> and <b>audio features</b>
+          (energy, valence, danceability, tempo…) to your tracks. Runs entirely in the browser
+          using PKCE — your token never leaves this page.
+        </p>
+        <ol class="steps small">
+          <li>Open <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener">developer.spotify.com/dashboard</a> and create an app.</li>
+          <li>Add this exact Redirect URI: <code id="redirectUri"></code></li>
+          <li>Copy your <b>Client ID</b> and paste it below.</li>
+        </ol>
+        <label class="field">
+          <span>Client ID</span>
+          <input type="text" id="clientIdInput" placeholder="32-char hex" autocomplete="off" spellcheck="false" />
+        </label>
+        <div class="row">
+          <button type="button" id="startAuthBtn" class="btn primary">connect spotify</button>
+          <button type="button" id="csvBtn" class="btn ghost">use playlist CSV instead</button>
+          <input id="csvInput" type="file" accept=".csv,text/csv" multiple hidden />
+        </div>
+        <div id="enrichStatus" class="enrich-status small muted"></div>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Exclude tracks dialog -->
+  <dialog id="excludeDialog" class="dialog dialog-wide">
+    <div class="dialog-inner">
+      <div class="dialog-head">
+        <h3>excluded from analytics <span id="excludeCount" class="muted small"></span></h3>
+        <button class="x" aria-label="close" id="excludeCloseBtn">×</button>
+      </div>
+      <div class="dialog-body">
+        <p class="muted small">
+          Toggle tracks off to remove them from every chart, KPI and table.
+          Excluded tracks stay in your imported data — uncheck to bring them back.
+        </p>
+        <input type="search" id="excludeSearch" class="search-input" placeholder="search tracks or artists…" autocomplete="off" spellcheck="false" />
+        <div id="excludeList" class="exclude-list"></div>
+        <div class="dialog-foot">
+          <button type="button" class="btn ghost small" id="excludeClearBtn">clear all exclusions</button>
+          <span class="muted small" id="excludeShown"></span>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <footer class="footer">
+    <span class="muted small">all data stays in your browser • <a href="#" id="aboutLink">about</a></span>
+  </footer>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
