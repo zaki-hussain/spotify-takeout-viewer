@@ -6,6 +6,7 @@ import { parseFile, parseFilename } from './parser.js';
 import * as I from './insights.js';
 import * as C from './charts.js';
 import * as E from './enrich.js';
+import * as X from './excludes.js';
 
 // === theme ===
 const THEME_KEY = 'shx-theme';
@@ -121,6 +122,98 @@ $('resetBtn').addEventListener('click', async () => {
   location.reload();
 });
 
+// === EXCLUDE DIALOG ===
+$('excludeBtn').addEventListener('click', () => openExcludeDialog());
+$('excludeCloseBtn').addEventListener('click', () => $('excludeDialog').close());
+$('excludeSearch').addEventListener('input', () => renderExcludeList());
+$('excludeClearBtn').addEventListener('click', async () => {
+  await X.clearExcluded();
+  await renderExcludeList();
+  await render();
+});
+$('excludeDialog').addEventListener('close', () => render());
+
+// Per-track aggregated index for the dialog (built once per open).
+let _excludeIndex = null;
+
+async function openExcludeDialog() {
+  const streams = _allStreamsCache || (await getAllStreams());
+  // Aggregate all-time totals across all (un-filtered) streams.
+  // This ensures excluded tracks still appear in the dialog so they can be re-enabled.
+  const map = new Map();
+  for (const s of streams) {
+    const k = X.trackKey(s);
+    let agg = map.get(k);
+    if (!agg) { agg = { key: k, label: s.track, artist: s.artist, ms: 0, plays: 0 }; map.set(k, agg); }
+    agg.ms += s.ms;
+    if (I.isRealPlay(s)) agg.plays += 1;
+  }
+  _excludeIndex = [...map.values()].sort((a,b) => b.ms - a.ms);
+  $('excludeSearch').value = '';
+  await renderExcludeList();
+  $('excludeDialog').showModal();
+  // focus the search box after opening
+  setTimeout(() => $('excludeSearch').focus(), 0);
+}
+
+async function renderExcludeList() {
+  if (!_excludeIndex) return;
+  const set = await X.loadExcluded();
+  $('excludeCount').textContent = set.size ? `· ${set.size} hidden` : '';
+  const q = ($('excludeSearch').value || '').trim().toLowerCase();
+  const list = $('excludeList');
+  list.innerHTML = '';
+
+  // Filter
+  let rows = _excludeIndex;
+  if (q) {
+    rows = rows.filter(r =>
+      (r.label && r.label.toLowerCase().includes(q)) ||
+      (r.artist && r.artist.toLowerCase().includes(q))
+    );
+  }
+  // Pin excluded tracks to the top so they're easy to find/restore
+  rows = [...rows].sort((a, b) => {
+    const ax = set.has(a.key) ? 0 : 1;
+    const bx = set.has(b.key) ? 0 : 1;
+    if (ax !== bx) return ax - bx;
+    return b.ms - a.ms;
+  });
+
+  // Cap render to keep DOM light; the search box narrows further.
+  const CAP = 500;
+  const shown = rows.slice(0, CAP);
+  $('excludeShown').textContent = rows.length > CAP
+    ? `showing top ${CAP} of ${rows.length.toLocaleString()} — refine search`
+    : `${rows.length.toLocaleString()} track${rows.length===1?'':'s'}`;
+
+  if (!shown.length) {
+    list.appendChild(el('div',{class:'exclude-empty'},['no tracks match']));
+    return;
+  }
+
+  const frag = document.createDocumentFragment();
+  for (const r of shown) {
+    const isExcluded = set.has(r.key);
+    const row = el('div', { class: 'exclude-row' + (isExcluded ? ' excluded' : '') }, [
+      el('div', { class: 'toggle' }),
+      el('div', { class: 'name' }, [
+        el('b', {}, [r.label || '?']),
+        el('span', { class: 'a' }, ['— ' + (r.artist || 'unknown')]),
+      ]),
+      el('div', { class: 'stat' }, [`${r.plays.toLocaleString()} plays`]),
+      el('div', { class: 'stat' }, [C.fmtMs(r.ms)]),
+    ]);
+    row.addEventListener('click', async () => {
+      const next = !isExcluded;
+      await X.setExcluded(r.key, next);
+      await renderExcludeList();
+    });
+    frag.appendChild(row);
+  }
+  list.appendChild(frag);
+}
+
 // === ENRICHMENT DIALOG ===
 $('enrichBtn').addEventListener('click', async () => openEnrichDialog());
 async function openEnrichDialog() {
@@ -190,12 +283,17 @@ async function runEnrichment() {
 }
 
 // === RENDER ===
+// Cached, all-streams (un-filtered) for the exclude-dialog UI.
+let _allStreamsCache = null;
+
 async function render() {
-  const streams = await getAllStreams();
-  const hasData = streams.length > 0;
+  const allStreams = await getAllStreams();
+  _allStreamsCache = allStreams;
+  const hasData = allStreams.length > 0;
   $('enrichBtn').style.display = hasData ? '' : 'none';
   $('addMoreBtn').style.display = hasData ? '' : 'none';
   $('resetBtn').style.display = hasData ? '' : 'none';
+  $('excludeBtn').style.display = hasData ? '' : 'none';
   if (!hasData) {
     dashboard.classList.add('hidden');
     dropzone.classList.remove('hidden');
@@ -204,11 +302,25 @@ async function render() {
   }
   dropzone.classList.add('hidden');
   dashboard.classList.remove('hidden');
+  const excluded = await X.loadExcluded();
+  updateExcludeBadge(excluded.size);
+  const streams = X.applyExclusions(allStreams, excluded);
   const tracksArr = await getTracks();
   const artistsArr = await getArtists();
   const tracks = new Map(tracksArr.map(t => [t.id, t]));
   const artists = new Map(artistsArr.map(a => [a.id, a]));
-  renderDashboard(streams, tracks, artists);
+  renderDashboard(streams, tracks, artists, excluded);
+}
+
+function updateExcludeBadge(n) {
+  const btn = $('excludeBtn');
+  let badge = btn.querySelector('.btn-badge');
+  if (n > 0) {
+    if (!badge) { badge = document.createElement('span'); badge.className = 'btn-badge'; btn.appendChild(badge); }
+    badge.textContent = String(n);
+  } else if (badge) {
+    badge.remove();
+  }
 }
 
 function el(tag, attrs={}, children=[]) {
@@ -249,13 +361,13 @@ function section(title, meta, body, openByDefault=false) {
 }
 
 function tableTopRows(rows, cols) {
-  // cols: [{label, get, num?, bar?}]
+  // cols: [{label, get, num?, bar?, node?}]  node=true => get() returns an Element
   const barCol = cols.find(c=>c.bar);
   const max = Math.max(1, ...rows.map((r,i) => barCol ? (barCol.get(r,i)||0) : 0));
   const tbl = el('table',{class:'lite'});
   const thead = el('thead');
   const trh = el('tr');
-  for (const c of cols) trh.appendChild(el('th',{class:c.num?'num':''},[c.label]));
+  for (const c of cols) trh.appendChild(el('th',{class:c.num?'num':''},[c.label||'']));
   thead.appendChild(trh); tbl.appendChild(thead);
   const tbody = el('tbody');
   rows.forEach((r, i) => {
@@ -269,6 +381,11 @@ function tableTopRows(rows, cols) {
         const lbl = el('div',{class:'bar-label'},[c.format?c.format(v):fmtNum(v)]);
         td.appendChild(bar); td.appendChild(lbl);
         tr.appendChild(td);
+      } else if (c.node) {
+        const td = el('td',{class:c.num?'num':''});
+        const node = c.get(r, i);
+        if (node) td.appendChild(node);
+        tr.appendChild(td);
       } else {
         const v = c.get(r, i);
         tr.appendChild(el('td',{class:c.num?'num':''},[c.format?c.format(v):String(v??'')]));
@@ -280,7 +397,24 @@ function tableTopRows(rows, cols) {
   return tbl;
 }
 
-function renderDashboard(streams, tracks, artists) {
+function makeExcludeBtn(key, isOn=false) {
+  const btn = el('button', {
+    class: 'row-act' + (isOn ? ' on' : ''),
+    type: 'button',
+    title: isOn ? 'Re-include in analytics' : 'Exclude from analytics',
+    'aria-label': 'toggle exclusion',
+  }, [isOn ? '↺' : '×']);
+  btn.addEventListener('click', async (ev) => {
+    ev.stopPropagation();
+    const set = await X.loadExcluded();
+    const next = !set.has(key);
+    await X.setExcluded(key, next);
+    await render();
+  });
+  return btn;
+}
+
+function renderDashboard(streams, tracks, artists, excluded) {
   // === overview / KPIs ===
   const sm = I.summary(streams);
   const yearsSpan = sm.firstTs && sm.lastTs ? `${sm.firstTs.slice(0,10)} → ${sm.lastTs.slice(0,10)}` : '';
@@ -394,6 +528,7 @@ function renderDashboard(streams, tracks, artists) {
           { label:'artist', get:r => trackLabel.get(r.key)?.sub || '' },
           { label:'plays', get:r=>r.plays, num:true, format:fmtNum },
           { label:'time', get:r=>r.ms, num:true, format:C.fmtMs, bar:true },
+          { label:'', node:true, num:true, get:r => makeExcludeBtn(r.key) },
         ]),
       ]),
     ]);
@@ -444,6 +579,7 @@ function renderDashboard(streams, tracks, artists) {
             { label:'track', get:r=>trackLabel.get(r.key)?.label || '?' },
             { label:'artist', get:r=>trackLabel.get(r.key)?.sub || '' },
             { label:'time', get:r=>r.ms, num:true, format:C.fmtMs, bar:true },
+            { label:'', node:true, num:true, get:r => makeExcludeBtn(r.key) },
           ]),
         ]),
       ]);

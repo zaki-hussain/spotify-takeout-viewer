@@ -14,6 +14,7 @@
       <span class="sub" id="summaryLine"></span>
     </div>
     <div class="topbar-actions">
+      <button id="excludeBtn" class="ghost" title="Exclude tracks from analytics">exclude</button>
       <button id="enrichBtn" class="ghost" title="Enrich with Spotify metadata (genres, audio features)">enrich</button>
       <button id="addMoreBtn" class="ghost" title="Add more JSON files">+ files</button>
       <button id="resetBtn" class="ghost danger" title="Clear all local data">reset</button>
@@ -74,6 +75,28 @@
         <div id="enrichStatus" class="enrich-status small muted"></div>
       </div>
     </form>
+  </dialog>
+
+  <!-- Exclude tracks dialog -->
+  <dialog id="excludeDialog" class="dialog dialog-wide">
+    <div class="dialog-inner">
+      <div class="dialog-head">
+        <h3>excluded from analytics <span id="excludeCount" class="muted small"></span></h3>
+        <button class="x" aria-label="close" id="excludeCloseBtn">×</button>
+      </div>
+      <div class="dialog-body">
+        <p class="muted small">
+          Toggle tracks off to remove them from every chart, KPI and table.
+          Excluded tracks stay in your imported data — uncheck to bring them back.
+        </p>
+        <input type="search" id="excludeSearch" class="search-input" placeholder="search tracks or artists…" autocomplete="off" spellcheck="false" />
+        <div id="excludeList" class="exclude-list"></div>
+        <div class="dialog-foot">
+          <button type="button" class="btn ghost small" id="excludeClearBtn">clear all exclusions</button>
+          <span class="muted small" id="excludeShown"></span>
+        </div>
+      </div>
+    </div>
   </dialog>
 
   <footer class="footer">

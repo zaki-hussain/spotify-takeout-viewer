@@ -186,3 +186,57 @@ table.lite tr:hover td{background:var(--panel-2)}
 /* progress */
 .progress{height:4px;background:var(--panel-2);border-radius:2px;overflow:hidden;margin:6px 0}
 .progress > div{height:100%;background:var(--accent);width:0;transition:width .2s}
+
+/* exclude dialog */
+.dialog-wide{width:min(680px,calc(100vw - 32px))}
+.search-input{
+  width:100%;background:var(--panel);border:1px solid var(--line);color:var(--fg);
+  padding:8px 10px;border-radius:6px;font:inherit;margin:6px 0 10px;
+}
+.search-input:focus{outline:none;border-color:var(--accent)}
+.exclude-list{
+  max-height:55vh;overflow-y:auto;border:1px solid var(--line);border-radius:8px;
+  background:var(--bg);
+}
+.exclude-row{
+  display:grid;grid-template-columns:auto 1fr auto auto;gap:10px;align-items:center;
+  padding:7px 10px;border-bottom:1px solid var(--line);cursor:pointer;
+  font-size:13px;
+}
+.exclude-row:last-child{border-bottom:none}
+.exclude-row:hover{background:var(--panel-2)}
+.exclude-row.excluded{opacity:.55}
+.exclude-row .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.exclude-row .name b{font-weight:600}
+.exclude-row .name .a{color:var(--muted);margin-left:6px}
+.exclude-row .stat{color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums;text-align:right}
+.exclude-row .toggle{
+  width:34px;height:18px;border-radius:999px;background:var(--accent);position:relative;
+  flex-shrink:0;transition:background .15s;
+}
+.exclude-row.excluded .toggle{background:var(--panel-2);border:1px solid var(--line)}
+.exclude-row .toggle::after{
+  content:'';position:absolute;top:2px;left:18px;width:14px;height:14px;border-radius:50%;
+  background:var(--accent-fg);transition:left .15s;
+}
+.exclude-row.excluded .toggle::after{left:2px;background:var(--muted)}
+.exclude-empty{padding:20px;text-align:center;color:var(--muted);font-size:13px}
+.dialog-foot{display:flex;align-items:center;justify-content:space-between;margin-top:10px;gap:10px}
+
+/* row-action button (inside top-tracks table) */
+.row-act{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:20px;height:20px;border:1px solid transparent;border-radius:4px;
+  color:var(--muted);background:transparent;cursor:pointer;font-size:11px;line-height:1;
+  padding:0;opacity:0;transition:opacity .12s,background .12s,color .12s;
+}
+table.lite tr:hover .row-act{opacity:1}
+.row-act:hover{background:var(--panel-2);color:var(--danger);border-color:var(--line)}
+.row-act.on{opacity:1;color:var(--danger);background:var(--panel-2);border-color:var(--line)}
+
+/* badge on topbar button */
+.btn-badge{
+  display:inline-block;margin-left:6px;padding:0 6px;border-radius:999px;
+  background:var(--accent);color:var(--accent-fg);font-size:10px;font-weight:700;
+  line-height:14px;vertical-align:middle;
+}
