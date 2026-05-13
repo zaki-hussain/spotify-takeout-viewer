@@ -11,17 +11,18 @@ import * as X from './excludes.js';
 // === theme ===
 const THEME_KEY = 'shx-theme';
 function applyTheme(t) {
-  document.body.dataset.theme = t;
+  document.documentElement.dataset.theme = t;
   localStorage.setItem(THEME_KEY, t);
 }
 applyTheme(localStorage.getItem(THEME_KEY) || 'dark');
 document.getElementById('themeBtn').addEventListener('click', () => {
-  applyTheme(document.body.dataset.theme === 'dark' ? 'light' : 'dark');
+  applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
 });
 
 // === DOM refs ===
 const $ = id => document.getElementById(id);
 const dropzone = $('dropzone');
+const explainer = $('explainer');
 const fileInput = $('fileInput');
 const dzStatus = $('dzStatus');
 const dashboard = $('dashboard');
@@ -297,10 +298,12 @@ async function render() {
   if (!hasData) {
     dashboard.classList.add('hidden');
     dropzone.classList.remove('hidden');
+    explainer?.classList.remove('hidden');
     summaryLine.textContent = '';
     return;
   }
   dropzone.classList.add('hidden');
+  explainer?.classList.add('hidden');
   dashboard.classList.remove('hidden');
   const excluded = await X.loadExcluded();
   updateExcludeBadge(excluded.size);

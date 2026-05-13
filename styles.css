@@ -38,12 +38,14 @@
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0;background:var(--bg);color:var(--fg)}
+html{min-height:100%}
 body{
   font-family:-apple-system,BlinkMacSystemFont,"Inter","SF Pro Text","Segoe UI",Roboto,system-ui,sans-serif;
   font-size:14px;
   line-height:1.45;
   -webkit-font-smoothing:antialiased;
   text-rendering:optimizeLegibility;
+  min-height:100vh;
 }
 a{color:inherit}
 code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92em;background:var(--panel-2);padding:1px 5px;border-radius:4px}
@@ -84,6 +86,23 @@ main{padding:28px;max-width:1280px;margin:0 auto}
 .dz-actions{margin-top:18px}
 .dz-actions label{cursor:pointer}
 .dz-status{margin-top:14px;color:var(--muted);font-size:12px;min-height:1em}
+
+/* explainer (shown before files are loaded) */
+.explainer{
+  margin-top:22px;border:1px solid var(--line);border-radius:12px;
+  background:var(--panel);padding:18px 22px;
+}
+.explainer h2{
+  margin:0 0 10px;font-size:15px;font-weight:600;letter-spacing:.1px;
+}
+.explainer h2 a{
+  color:var(--fg);text-decoration:none;border-bottom:1px solid var(--line);
+}
+.explainer h2 a:hover{border-bottom-color:var(--accent);color:var(--accent)}
+.explainer ul{margin:6px 0 12px;padding-left:20px}
+.explainer li{margin:4px 0;color:var(--fg)}
+.explainer li b{font-weight:600}
+.explainer p{margin:14px 0 6px}
 
 /* kpis */
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px}
