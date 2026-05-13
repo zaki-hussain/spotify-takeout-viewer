@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Streaming History</title>
 <link rel="stylesheet" href="./styles.css" />
 </head>
-<body data-theme="dark">
+<body>
   <header class="topbar">
     <div class="brand">
       <span class="dot"></span>
@@ -37,6 +37,32 @@
         </div>
         <div id="dzStatus" class="dz-status"></div>
       </div>
+    </section>
+
+    <section id="explainer" class="explainer">
+      <p class="explainer-lead">
+        Export your Spotify extended listening history:
+        <a href="https://support.spotify.com/us/article/understanding-your-data/" target="_blank" rel="noopener">support.spotify.com/article/understanding-your-data</a>
+      </p>
+      <h2>What it shows</h2>
+      <ul>
+        <li><b>KPIs</b> — total listening time, plays, unique tracks/artists/albums, active days, longest streak, shuffle share.</li>
+        <li><b>Listening over time</b> — monthly + weekly hours, with hover tooltips.</li>
+        <li><b>Habits &amp; timing</b> — hour × day-of-week heatmap, hour-of-day bar, day-of-week bar.</li>
+        <li><b>Calendar</b> — GitHub-style heatmap, one per year.</li>
+        <li><b>Top artists / tracks / albums</b> — all-time, with bar overlays.</li>
+        <li><b>Year-by-year</b> — top 10 artists and tracks for each calendar year.</li>
+        <li><b>Discovery</b> — first-time tracks and artists per month.</li>
+        <li><b>Top-artist share over time</b> — stacked area, both absolute and normalized (percentage).</li>
+        <li><b>Behaviour</b> — <code>reason_start</code> / <code>reason_end</code> distributions and the most-skipped songs.</li>
+        <li><b>Platforms &amp; places</b> — by device and by <code>conn_country</code>.</li>
+        <li><b>Streaks &amp; milestones</b> — your 1st / 100th / 1000th / 10kth play.</li>
+        <li><b>Genres</b> — totals across all artists you played.</li>
+        <li><b>Audio features</b> — weighted-average energy, valence, danceability, etc., and time-series for each.</li>
+        <li><b>Mood map</b> — every unique track plotted on a valence × energy scatter, sized by play count.</li>
+        <li><b>Taste vintage</b> — listening time by track release year.</li>
+        <li><b>Popularity</b> — hours listened by Spotify's 0–100 popularity score.</li>
+      </ul>
     </section>
 
     <section id="dashboard" class="hidden">
